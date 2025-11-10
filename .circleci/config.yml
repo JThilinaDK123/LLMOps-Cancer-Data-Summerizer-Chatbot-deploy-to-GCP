@@ -69,8 +69,7 @@ version: 2.1
 executors:
   docker-executor:
     docker:
-      # Use Docker-included image with git and basic tools
-      - image: docker:stable-git
+      - image: cimg/base:stable  # ✅ Debian-based with Python 3.10+
     working_directory: ~/repo
     environment:
       DOCKER_BUILDKIT: 1
@@ -80,29 +79,27 @@ jobs:
     executor: docker-executor
     steps:
       - checkout
-
-      # Enable Docker-in-Docker — no version specified!
       - setup_remote_docker
 
-      # Install Google Cloud SDK
       - run:
-          name: Install Google Cloud SDK
+          name: Install Python 3.10 and Google Cloud SDK
           command: |
-            apk add --no-cache python3 py3-pip curl bash libc6-compat
+            sudo apt-get update && sudo apt-get install -y python3.10 python3.10-distutils curl bash apt-transport-https ca-certificates gnupg
+            export CLOUDSDK_PYTHON=/usr/bin/python3.10
             echo "Installing Google Cloud SDK..."
-            curl -sSL https://sdk.cloud.google.com | bash
-            source /root/google-cloud-sdk/path.bash.inc
+            curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-493.0.0-linux-x86_64.tar.gz
+            tar -xf google-cloud-cli-493.0.0-linux-x86_64.tar.gz
+            ./google-cloud-sdk/install.sh --quiet
+            source google-cloud-sdk/path.bash.inc
             gcloud version
 
-      # Authenticate and push Docker image to Artifact Registry
       - run:
           name: Authenticate and Push Docker Image
           command: |
-            source /root/google-cloud-sdk/path.bash.inc
+            source google-cloud-sdk/path.bash.inc
             echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
             gcloud auth activate-service-account --key-file=gcp-key.json
             gcloud auth configure-docker us-central1-docker.pkg.dev
-
             docker build -t us-central1-docker.pkg.dev/$GOOGLE_PROJECT_ID/llmops-repo/llmops-app:latest .
             docker push us-central1-docker.pkg.dev/$GOOGLE_PROJECT_ID/llmops-repo/llmops-app:latest
 
@@ -111,17 +108,22 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker
+
       - run:
-          name: Install Google Cloud SDK
+          name: Install Python 3.10 and Google Cloud SDK
           command: |
-            apk add --no-cache python3 py3-pip curl bash libc6-compat
-            curl -sSL https://sdk.cloud.google.com | bash
-            source /root/google-cloud-sdk/path.bash.inc
+            sudo apt-get update && sudo apt-get install -y python3.10 python3.10-distutils curl bash apt-transport-https ca-certificates gnupg
+            export CLOUDSDK_PYTHON=/usr/bin/python3.10
+            curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-493.0.0-linux-x86_64.tar.gz
+            tar -xf google-cloud-cli-493.0.0-linux-x86_64.tar.gz
+            ./google-cloud-sdk/install.sh --quiet
+            source google-cloud-sdk/path.bash.inc
             gcloud version
+
       - run:
           name: Authenticate and Deploy
           command: |
-            source /root/google-cloud-sdk/path.bash.inc
+            source google-cloud-sdk/path.bash.inc
             echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
             gcloud auth activate-service-account --key-file=gcp-key.json
             gcloud container clusters get-credentials $GKE_CLUSTER --region $GOOGLE_COMPUTE_REGION --project $GOOGLE_PROJECT_ID
