@@ -1,0 +1,5 @@
+.env
+venv/
+logs/
+Cancer_data_pdf_Summerizer_Chatbot.egg-info
+gcp-key.json
