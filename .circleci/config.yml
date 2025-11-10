@@ -69,8 +69,8 @@ version: 2.1
 executors:
   docker-executor:
     docker:
-      # Use Docker image that includes both Docker and basic tools
-      - image: docker:20.10.16-git
+      # Use Docker-included image with git and basic tools
+      - image: docker:stable-git
     working_directory: ~/repo
     environment:
       DOCKER_BUILDKIT: 1
@@ -81,11 +81,10 @@ jobs:
     steps:
       - checkout
 
-      # Enable Docker-in-Docker (needed to build and push images)
-      - setup_remote_docker:
-          version: 20.10.16
+      # Enable Docker-in-Docker — no version specified!
+      - setup_remote_docker
 
-      # Install Google Cloud SDK inside container
+      # Install Google Cloud SDK
       - run:
           name: Install Google Cloud SDK
           command: |
@@ -95,7 +94,7 @@ jobs:
             source /root/google-cloud-sdk/path.bash.inc
             gcloud version
 
-      # Authenticate with GCP and push image
+      # Authenticate and push Docker image to Artifact Registry
       - run:
           name: Authenticate and Push Docker Image
           command: |
