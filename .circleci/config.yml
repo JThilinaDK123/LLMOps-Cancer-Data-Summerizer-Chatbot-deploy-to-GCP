@@ -65,20 +65,20 @@
 #             - build_docker_image
 
     
-
-
 version: 2.1
 
 jobs:
   checkout_code:
     machine:
       image: ubuntu-2204:2023.07.1
+      resource_class: medium
     steps:
       - checkout
 
   build_docker_image:
     machine:
       image: ubuntu-2204:2023.07.1
+      resource_class: medium
     steps:
       - checkout
       - run:
@@ -96,6 +96,7 @@ jobs:
   deploy_to_gke:
     machine:
       image: ubuntu-2204:2023.07.1
+      resource_class: medium
     steps:
       - checkout
       - run:
@@ -125,4 +126,3 @@ workflows:
       - deploy_to_gke:
           requires:
             - build_docker_image
-
