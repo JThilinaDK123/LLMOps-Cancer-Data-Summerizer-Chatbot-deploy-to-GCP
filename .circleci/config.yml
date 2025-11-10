@@ -111,14 +111,20 @@ jobs:
 
       # Install Google Cloud SDK
       - run:
-          name: Install Google Cloud SDK
+          name: Install Google Cloud SDK + kubectl + GKE plugin
           command: |
             sudo apt-get update && sudo apt-get install -y curl apt-transport-https ca-certificates gnupg
             sudo mkdir -p /usr/share/keyrings
             curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
             echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
-            sudo apt-get update && sudo apt-get install -y google-cloud-cli
+            sudo apt-get update
+            sudo apt-get install -y google-cloud-cli kubectl
+            # Enable GKE auth plugin
+            gcloud components install gke-gcloud-auth-plugin --quiet
+            # Make sure kubectl uses it
+            export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             gcloud version
+            kubectl version --client
 
       # Authenticate and deploy to GKE
       - run:
