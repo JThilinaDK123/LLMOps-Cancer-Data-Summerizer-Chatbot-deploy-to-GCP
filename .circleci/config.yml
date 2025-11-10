@@ -67,66 +67,68 @@
 version: 2.1
 
 executors:
-  docker-executor:
+  python-docker-executor:
     docker:
-      - image: cimg/base:stable  # ✅ Debian-based with Python 3.10+
+      - image: cimg/python:3.10  # Official CircleCI Python 3.10 image
     working_directory: ~/repo
     environment:
       DOCKER_BUILDKIT: 1
 
 jobs:
   build_docker_image:
-    executor: docker-executor
+    executor: python-docker-executor
     steps:
       - checkout
       - setup_remote_docker
 
+      # Install Google Cloud SDK
       - run:
-          name: Install Python 3.10 and Google Cloud SDK
+          name: Install Google Cloud SDK
           command: |
-            sudo apt-get update && sudo apt-get install -y python3.10 python3.10-distutils curl bash apt-transport-https ca-certificates gnupg
-            export CLOUDSDK_PYTHON=/usr/bin/python3.10
-            echo "Installing Google Cloud SDK..."
-            curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-493.0.0-linux-x86_64.tar.gz
-            tar -xf google-cloud-cli-493.0.0-linux-x86_64.tar.gz
-            ./google-cloud-sdk/install.sh --quiet
-            source google-cloud-sdk/path.bash.inc
+            sudo apt-get update
+            sudo apt-get install -y apt-transport-https ca-certificates gnupg curl
+            echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+            curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+            sudo apt-get update && sudo apt-get install -y google-cloud-cli
             gcloud version
 
+      # Authenticate and push Docker image to Artifact Registry
       - run:
           name: Authenticate and Push Docker Image
           command: |
-            source google-cloud-sdk/path.bash.inc
             echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
             gcloud auth activate-service-account --key-file=gcp-key.json
             gcloud auth configure-docker us-central1-docker.pkg.dev
+
             docker build -t us-central1-docker.pkg.dev/$GOOGLE_PROJECT_ID/llmops-repo/llmops-app:latest .
             docker push us-central1-docker.pkg.dev/$GOOGLE_PROJECT_ID/llmops-repo/llmops-app:latest
 
   deploy_to_gke:
-    executor: docker-executor
+    executor: python-docker-executor
     steps:
       - checkout
       - setup_remote_docker
 
+      # Install Google Cloud SDK
       - run:
-          name: Install Python 3.10 and Google Cloud SDK
+          name: Install Google Cloud SDK
           command: |
-            sudo apt-get update && sudo apt-get install -y python3.10 python3.10-distutils curl bash apt-transport-https ca-certificates gnupg
-            export CLOUDSDK_PYTHON=/usr/bin/python3.10
-            curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-493.0.0-linux-x86_64.tar.gz
-            tar -xf google-cloud-cli-493.0.0-linux-x86_64.tar.gz
-            ./google-cloud-sdk/install.sh --quiet
-            source google-cloud-sdk/path.bash.inc
+            sudo apt-get update
+            sudo apt-get install -y apt-transport-https ca-certificates gnupg curl
+            echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+            curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+            sudo apt-get update && sudo apt-get install -y google-cloud-cli
             gcloud version
 
+      # Authenticate and deploy to GKE
       - run:
           name: Authenticate and Deploy
           command: |
-            source google-cloud-sdk/path.bash.inc
             echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
             gcloud auth activate-service-account --key-file=gcp-key.json
-            gcloud container clusters get-credentials $GKE_CLUSTER --region $GOOGLE_COMPUTE_REGION --project $GOOGLE_PROJECT_ID
+            gcloud container clusters get-credentials $GKE_CLUSTER \
+              --region $GOOGLE_COMPUTE_REGION \
+              --project $GOOGLE_PROJECT_ID
             kubectl apply -f kubernetes-deployment.yaml --validate=false
             kubectl rollout restart deployment llmops-app
 
